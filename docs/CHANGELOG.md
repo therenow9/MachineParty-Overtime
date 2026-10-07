@@ -4,6 +4,26 @@
 
 历史公告保留当时的版本、范围与验证状态，不代表 1.7 的安装方式或验证结论。各版下载文件以对应 Release 为准。
 
+## 未发布 — 猎鸭：机器人猎人的分屏画面
+
+- 本地分屏里，机器人（Offline Bots）当猎人时，它的分屏画面停在世界原点：两个机器人猎人的画面一模一样，只有上面一条有图像，下面全黑。
+  原因是 Offline Bots 会关掉机器人的 `_process`，而猎人的分屏摄像机只在猎人自己的 `_process` 里跟随瞄准摄像机。现在由小游戏每帧替这样的猎人同步一次；真人猎人不受影响。
+- 机器人猎人开镜时，它的分屏画面现在也会放大。Offline Bots 只改 `zoom_fov_index`（不调用 `update_zoom()`，免得瞄准镜贴图出现在房主屏幕上），所以画面的视野改按这个档位取 `zoom_fovs`。不显示瞄准镜贴图，也没有开镜音效。
+- 只改本地同屏；联机握手串仍是 `overtime-1.7`。
+
+> **English — unreleased: Duck Hunt, bot hunters' split-screen views.**
+>
+> - In local split screen, a bot hunter (Offline Bots) had its tile stuck at the world origin: two bot hunters showed
+>   the same picture, an image band at the top and black below. Offline Bots switches a bot's `_process` off, and a
+>   hunter's split-screen camera follows its aim camera only in the hunter's own `_process`. The minigame now does that
+>   for such a hunter every frame; human hunters are unchanged.
+> - A bot hunter's tile now zooms when the bot scopes in. Offline Bots sets only `zoom_fov_index` (it skips
+>   `update_zoom()`, whose scope overlay would reach the host's screen), so the tile takes its field of view from
+>   `zoom_fovs` at that index. No scope overlay and no scope sound.
+> - Local play only; the handshake tag is still `overtime-1.7`.
+
+---
+
 ## 1.7 — 本地同屏、渐变外观与安装器重构
 
 - 新增本地 5–8 人席位与分屏，保留设备身份，完善猎鸭双猎人视角。

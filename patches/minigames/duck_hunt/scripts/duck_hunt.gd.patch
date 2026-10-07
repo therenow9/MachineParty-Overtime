@@ -315,7 +315,14 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  var last_spectate_camera_transform: Transform3D
  
  var local_duck_players: Dictionary[int, DuckHuntDuckPlayer]
-@@ -113,7 +411,7 @@ func process_local(_delta: float):
+@@ -108,12 +406,14 @@ func process_local(_delta: float):
+ 	if not GameManager.local_game:
+ 		return
+ 
++	_mp8_follow_idle_hunter_views()
++
+ 	if local_duck_players.is_empty():
+ 		return
  
  	var duck_player_positions: Array[Vector3]
  	for duck_player in local_duck_players.values():
@@ -324,7 +331,24 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  			duck_player_positions.append(duck_player.global_position)
  
  	if duck_player_positions.is_empty():
-@@ -202,6 +500,8 @@ func all_players_loaded():
+@@ -132,6 +432,16 @@ func process_local(_delta: float):
+ 		_delta * 64.0
+ 	)
+ 
++# A hunter's split-screen tile is its local_camera, which follows its aim camera only in the hunter's own
++# _process. Offline Bots switches a bot's _process off, so without this a bot hunter's tile stays at the world origin.
++# It also scopes a bot by zoom_fov_index alone (update_zoom's overlay would reach the host's screen online),
++# so the tile takes its zoom from that index.
++func _mp8_follow_idle_hunter_views() -> void:
++	for hunter in hunter_players:
++		if is_instance_valid(hunter) and not hunter.is_processing():
++			hunter.local_camera.global_transform = hunter.camera.global_transform
++			hunter.local_camera.fov = hunter.zoom_fovs[clampi(int(hunter.zoom_fov_index), 0, hunter.zoom_fovs.size() - 1)]
++
+ func process_online(_delta: float):
+ 
+ 	if GameManager.local_game:
+@@ -202,6 +512,8 @@ func all_players_loaded():
  
  func spawn_players():
  
@@ -333,7 +357,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  	await get_tree().create_timer(1, false).timeout
  
  	players_acknowledged.clear()
-@@ -216,17 +516,47 @@ func spawn_players():
+@@ -216,17 +528,47 @@ func spawn_players():
  		local_game_players_order[player_presence] = null
  
  
@@ -384,7 +408,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  
  	var spawn_positions = duck_player_spawn_positions.get_children()
  	spawn_positions.shuffle()
-@@ -235,7 +565,7 @@ func spawn_players():
+@@ -235,7 +577,7 @@ func spawn_players():
  	var counter: int = 0
  	for network_id in PlayerManager.player_presences.keys():
  
@@ -393,7 +417,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  			continue
  
  		player_presence = PlayerManager.player_presences[network_id]
-@@ -255,25 +585,19 @@ func spawn_players():
+@@ -255,25 +597,19 @@ func spawn_players():
  		local_game_players_order[player_presence.network_id] = player_character
  
  		if GameManager.local_game:
@@ -425,7 +449,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  	var hunter_initialization_delay = 8.0
  	if current_round > 0:
  		hunter_initialization_delay = 5.0
-@@ -281,16 +605,78 @@ func spawn_players():
+@@ -281,16 +617,78 @@ func spawn_players():
  	if GameManager.local_game:
  		hunter_initialization_delay -= 2.0
  
@@ -435,7 +459,10 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
 +	for hunter_index in hunter_network_ids.size():
 +		var hunter_network_id: int = hunter_network_ids[hunter_index]
 +		player_presence = PlayerManager.player_presences[hunter_network_id]
-+
+ 
+-	local_game_players_order[player_presence.network_id] = hunter_player_character
+-	hunter_player = hunter_player_character
+-	players.append(hunter_player_character)
 +		var hunter_player_character = hunter_player_scene.instantiate()
 +		hunter_player_spawn_parent.add_child(hunter_player_character, true)
 +
@@ -449,10 +476,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
 +		)
 +
 +		hunter_player_character.initialize_hunter_rpc.rpc(hunter_initialization_delay)
- 
--	local_game_players_order[player_presence.network_id] = hunter_player_character
--	hunter_player = hunter_player_character
--	players.append(hunter_player_character)
++
 +		local_game_players_order[player_presence.network_id] = hunter_player_character
 +		hunter_players.append(hunter_player_character)
 +		players.append(hunter_player_character)
@@ -509,7 +533,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  
  func force_game_end():
  
-@@ -317,9 +703,15 @@ func check_game_end():
+@@ -317,9 +715,15 @@ func check_game_end():
  	if resetting:
  		return
  
@@ -526,7 +550,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  	if not possible_hunters.is_empty():
  		resetting = true
  		await get_tree().create_timer(3.0).timeout
-@@ -337,12 +729,23 @@ func check_game_end():
+@@ -337,12 +741,23 @@ func check_game_end():
  func set_hunter_name_rpc(_hunter_name: String):
  	hunter_name = _hunter_name
  
@@ -554,7 +578,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  
  @rpc("authority", "call_local", "reliable")
  func duck_player_added_rpc(_network_id):
-@@ -368,18 +771,83 @@ func set_hunter_rpc(_network_id):
+@@ -368,18 +783,83 @@ func set_hunter_rpc(_network_id):
  
  	acknowledge_role_rpc.rpc(multiplayer.get_unique_id())
  
@@ -639,7 +663,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  			state_machine.transition_to_rpc.rpc(&"RoleReveal")
  
  @rpc("any_peer", "call_local", "reliable")
-@@ -429,7 +897,9 @@ func remove_player_rpc(_network_id: int):
+@@ -429,7 +909,9 @@ func remove_player_rpc(_network_id: int):
  			remove_spectate_player_rpc.rpc(_network_id)
  			duck_players.erase(_network_id)
  		if player_instance is DuckHuntHunterPlayer:
@@ -650,7 +674,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  			duck_player_count -= 1
  
  		player_instance.queue_free()
-@@ -450,6 +920,16 @@ func player_disconnected(_network_id: int):
+@@ -450,6 +932,16 @@ func player_disconnected(_network_id: int):
  
  	if multiplayer.is_server():
  		await get_tree().create_timer(1.0).timeout
@@ -667,7 +691,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  		check_game_end()
  
  func _on_duck_player_spectate(_network_id):
-@@ -498,13 +978,20 @@ func _on_player_finished(_network_id: int):
+@@ -498,13 +990,20 @@ func _on_player_finished(_network_id: int):
  			local_duck_players.erase(_network_id)
  
  	if duck_players.has(_network_id):
@@ -692,7 +716,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  
  	check_game_end()
  
-@@ -517,15 +1004,76 @@ func _on_player_died(_network_id: int):
+@@ -517,15 +1016,76 @@ func _on_player_died(_network_id: int):
  	if duck_players.has(_network_id):
  		duck_players.erase(_network_id)
  		remove_spectate_player_rpc.rpc(_network_id)
@@ -772,7 +796,7 @@ diff --git a/minigames/duck_hunt/scripts/duck_hunt.gd b/minigames/duck_hunt/scri
  func _on_countdown_expired():
  	super._on_countdown_expired()
  
-@@ -534,3 +1082,131 @@ func _on_countdown_expired():
+@@ -534,3 +1094,131 @@ func _on_countdown_expired():
  func _on_unpaused():
  
  	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
